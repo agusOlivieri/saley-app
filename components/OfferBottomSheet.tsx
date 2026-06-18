@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from "react-native";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { Heart, Navigation, Tag, Calendar, Coffee } from "lucide-react-native";
+import { registrarInteraccion } from "../lib/interactions";
 
 export type Promo = {
   id: string;
@@ -21,9 +22,11 @@ export type Promo = {
 type Props = {
   commercePromos: Promo[] | null;
   onClose: () => void;
+  consumidorId?: string;
+  ubicacion?: { lat: number; lng: number };
 };
 
-export function OfferBottomSheet({ commercePromos, onClose }: Props) {
+export function OfferBottomSheet({ commercePromos, onClose, consumidorId, ubicacion }: Props) {
   const bottomSheetRef = useRef<BottomSheet>(null);
 
   // variables
@@ -38,8 +41,38 @@ export function OfferBottomSheet({ commercePromos, onClose }: Props) {
     [onClose]
   );
 
+  const handleComoLlegar = () => {
+    if (!commercePromos || commercePromos.length === 0) return;
+    const promo = commercePromos[0];
+
+    if (consumidorId) {
+      commercePromos.forEach(p => {
+        registrarInteraccion({
+          ofertaId: p.id,
+          tipo: 'interaccion',
+          consumidorId,
+          ubicacion,
+        });
+      });
+    }
+
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${promo.lat},${promo.lng}`;
+    Linking.openURL(url).catch(err => console.warn('Error abriendo mapa:', err));
+  };
+
   useEffect(() => {
     if (commercePromos && commercePromos.length > 0) {
+      // Registrar vista por cada promo visible
+      if (consumidorId) {
+        commercePromos.forEach(promo => {
+          registrarInteraccion({
+            ofertaId: promo.id,
+            tipo: 'vista',
+            consumidorId,
+            ubicacion,
+          });
+        });
+      }
       bottomSheetRef.current?.snapToIndex(0);
     } else {
       bottomSheetRef.current?.close();
@@ -75,7 +108,7 @@ export function OfferBottomSheet({ commercePromos, onClose }: Props) {
                 </Text>
               </View>
               <TouchableOpacity style={styles.favoriteBtn}>
-                <Heart size={28} color="#666" />
+                {/* <Heart size={28} color="#666" /> */}
               </TouchableOpacity>
             </View>
 
@@ -107,7 +140,7 @@ export function OfferBottomSheet({ commercePromos, onClose }: Props) {
             ))}
 
             {/* CTA Button */}
-            <TouchableOpacity style={styles.ctaButton}>
+            <TouchableOpacity style={styles.ctaButton} onPress={handleComoLlegar}>
               <Navigation size={20} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.ctaText}>Cómo llegar</Text>
             </TouchableOpacity>

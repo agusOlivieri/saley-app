@@ -6,6 +6,7 @@ import * as Location from "expo-location";
 import { Bell, MapPin, SlidersHorizontal, ChevronDown, Coffee, Pizza, Dumbbell, ShoppingBag } from "lucide-react-native";
 import { supabase } from "../../lib/supabase";
 import { OfferBottomSheet, Promo } from "../../components/OfferBottomSheet";
+import { useAuth } from "../../lib/AuthContext";
 
 const token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
 
@@ -14,6 +15,7 @@ Mapbox.setAccessToken(token!);
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [promos, setPromos] = useState<Promo[]>([]);
@@ -182,6 +184,12 @@ export default function ExploreScreen() {
       <OfferBottomSheet
         commercePromos={selectedCommercePromos}
         onClose={() => setSelectedCommercePromos(null)}
+        consumidorId={user?.id}
+        ubicacion={
+          location
+            ? { lat: location.coords.latitude, lng: location.coords.longitude }
+            : undefined
+        }
       />
     </View>
   );

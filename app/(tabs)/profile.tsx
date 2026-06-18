@@ -18,30 +18,12 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchProfile() {
-      if (!user) return;
-      try {
-        const { data, error } = await supabase
-          .from("consumidores")
-          .select("nombre_usuario")
-          .eq("id", user.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching username:", error);
-          // Fallback to email prefix if username is not found
-          setUsername(user.email?.split("@")[0] || "Usuario");
-        } else if (data) {
-          setUsername(data.nombre_usuario);
-        }
-      } catch (err) {
-        console.error("Unexpected error fetching username:", err);
-      } finally {
-        setLoading(false);
-      }
+    if (user) {
+      setUsername(
+        user.user_metadata?.username || user.email?.split("@")[0] || "Usuario"
+      );
     }
-
-    fetchProfile();
+    setLoading(false);
   }, [user]);
 
   const handleSignOut = async () => {
