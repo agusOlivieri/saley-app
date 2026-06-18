@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Mapbox from "@rnmapbox/maps";
@@ -6,6 +6,9 @@ import * as Location from "expo-location";
 import { Bell, MapPin, SlidersHorizontal, ChevronDown, Coffee, Pizza, Dumbbell, ShoppingBag } from "lucide-react-native";
 import { supabase } from "../../lib/supabase";
 import { OfferBottomSheet, Promo } from "../../components/OfferBottomSheet";
+import { useProximityNotifications } from "../../lib/useProximityNotifications";
+import { requestNotificationPermissions, registerPushToken } from "../../lib/notifications";
+import { getDistanceInMeters, formatDistance } from "../../lib/distance";
 import { useAuth } from "../../lib/AuthContext";
 
 const token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
@@ -18,23 +21,72 @@ export default function ExploreScreen() {
   const { user } = useAuth();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [cityName, setCityName] = useState<string>("Cargando...");
   const [promos, setPromos] = useState<Promo[]>([]);
   const [selectedCommercePromos, setSelectedCommercePromos] = useState<Promo[] | null>(null);
+
+  // Inicializa permisos de notificaciones y registra el push token del dispositivo
+  useEffect(() => {
+    (async () => {
+      await requestNotificationPermissions();
+      if (user?.id) {
+        await registerPushToken(user.id);
+      }
+    })();
+  }, [user?.id]);
 
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         setErrorMsg("Permission to access location was denied");
+        setCityName("Tu Ubicación");
         return;
       }
 
       let location = await Location.getCurrentPositionAsync({});
       setLocation(location);
+
+      try {
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+        if (reverseGeocode && reverseGeocode.length > 0) {
+          const address = reverseGeocode[0];
+          const city = address.city || address.subregion || address.region || "Tu Ubicación";
+          setCityName(city);
+        } else {
+          setCityName("Tu Ubicación");
+        }
+      } catch (geocodeError) {
+        console.warn("Error al resolver la ciudad:", geocodeError);
+        setCityName("Tu Ubicación");
+      }
     })();
 
     fetchPromos();
   }, []);
+
+  // Calcula la oferta más cercana al usuario para mostrar en el banner
+  const nearestPromo = useMemo(() => {
+    if (!location || promos.length === 0) return null;
+    const { latitude, longitude } = location.coords;
+
+    let closest: { promo: Promo; distance: number } | null = null;
+    for (const promo of promos) {
+      if (typeof promo.lat !== 'number' || typeof promo.lng !== 'number') continue;
+      const dist = getDistanceInMeters(latitude, longitude, promo.lat, promo.lng);
+      if (closest === null || dist < closest.distance) {
+        closest = { promo, distance: dist };
+      }
+    }
+    return closest;
+  }, [location, promos]);
+
+  // Monitorea la ubicación del usuario y dispara notificaciones de proximidad (200m)
+  useProximityNotifications(promos, !!location);
 
   const fetchPromos = async () => {
     // Usamos la vista de base de datos que ya incluye lat y lng
@@ -81,7 +133,7 @@ export default function ExploreScreen() {
         </View>
         <View style={styles.locationSelector}>
           <MapPin size={16} color="#333" />
-          <Text style={styles.locationText}>Tu Ubicación</Text>
+          <Text style={styles.locationText}>{cityName}</Text>
           <ChevronDown size={16} color="#333" />
         </View>
         <View style={styles.headerRight}>
@@ -89,12 +141,23 @@ export default function ExploreScreen() {
         </View>
       </View>
 
-      {/* Banner */}
+      {/* Banner — muestra la oferta más cercana con distancia real */}
       <View style={styles.banner}>
         <View style={styles.bannerIconContainer}>
           <MapPin size={20} color="#fff" />
         </View>
-        <Text style={styles.bannerText}>Tenés 20% OFF a 100m</Text>
+        {nearestPromo ? (
+          <View style={styles.bannerTextContainer}>
+            <Text style={styles.bannerText} numberOfLines={1}>
+              {nearestPromo.promo.nombre_comercial} · {formatDistance(nearestPromo.distance)}
+            </Text>
+            <Text style={styles.bannerSubtext} numberOfLines={1}>
+              {nearestPromo.promo.titulo}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.bannerText}>Explorá ofertas cerca tuyo</Text>
+        )}
       </View>
 
       {/* Filters */}
@@ -251,10 +314,21 @@ const styles = StyleSheet.create({
     padding: 6,
     marginRight: 12,
   },
+  bannerTextContainer: {
+    flex: 1,
+  },
   bannerText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+    flexShrink: 1,
+  },
+  bannerSubtext: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 12,
+    fontWeight: "400",
+    marginTop: 2,
+    flexShrink: 1,
   },
   filtersContainer: {
     flexDirection: "row",

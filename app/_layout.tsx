@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import * as Notifications from "expo-notifications";
 import { ActivityIndicator, View } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -8,6 +9,15 @@ function RootLayoutNav() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Navega al mapa cuando el usuario toca una notificación de oferta cercana
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(() => {
+      // Siempre navega a la pantalla del mapa (tabs), independientemente de la ruta actual
+      router.replace("/(tabs)");
+    });
+    return () => subscription.remove();
+  }, [router]);
 
   useEffect(() => {
     if (loading) return;
