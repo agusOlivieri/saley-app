@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo/metro-runtime": "~56.0.15",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@rnmapbox/maps": "^10.3.1",
@@ -16,7 +17,10 @@
     "expo-status-bar": "~56.0.4",
     "expo-web-browser": "~56.0.5",
     "lucide-react-native": "^1.17.0",
+    "mapbox-gl": "^3.25.0",
     "react": "19.2.3",
+    "react-dom": "^19.2.3",
+    "react-map-gl": "^8.1.1",
     "react-native": "0.85.3",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-reanimated": "4.3.1",
@@ -24,6 +28,7 @@
     "react-native-screens": "4.25.2",
     "react-native-svg": "15.15.4",
     "react-native-url-polyfill": "^3.0.0",
+    "react-native-web": "^0.21.2",
     "react-native-worklets": "^0.8.3"
   },
   "devDependencies": {
